@@ -5,7 +5,7 @@ import logging
 
 class TestRailInterface:
     """
-    TestRail API interface wrapper. Provides a handle for a testrail interface.
+    TestRail API interface wrapper. Provides a handle for a tr interface.
     """
 
     _ENV_URL_PARAM_NAME = "TR_URL"
@@ -20,7 +20,7 @@ class TestRailInterface:
     """
 
     @property
-    def testrail(self) -> TestRailAPI:
+    def tr(self) -> TestRailAPI:
         """
         Property method for returning the TestRailAPI
         :return: An instance of TestRailAPI, or None if the TestRailAPI hasn't been initialized
@@ -44,8 +44,8 @@ class TestRailInterface:
         See _ENV_* variables in thi class for environment variable names.
 
         :param tr_url: The TestRail web URL to sign into. No trailing '/' needed. Provide http or https
-        :param tr_user: The testrail user account ot sign into
-        :param tr_pass: The testrail user password or API key
+        :param tr_user: The tr user account ot sign into
+        :param tr_pass: The tr user password or API key
         """
 
         tr_url = os.getenv(self._ENV_URL_PARAM_NAME) if tr_url is None else tr_url
@@ -60,3 +60,14 @@ class TestRailInterface:
             self._initialized = True
 
         return
+
+    def case_data_have_error(self, case_data:dict) -> str:
+        """
+        Checks if a test case data dict has an error and returns the error statement
+        :param case_data: The Test Case data dict
+        :return: Returns the error message, if applicable, or an empty string if no error found
+        """
+        if 'error' in case_data:
+            return case_data['error']
+        else:
+            return ""
