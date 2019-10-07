@@ -1,3 +1,21 @@
+######################## LICENSE ########################
+# MIT License
+# Copyright (c) 2019 Corefracture, cf, Chris Coleman
+
+# Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+# documentation files (the "Software"), to deal in the Software without restriction, including without limitation the
+# rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+# permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+# The above copyright notice and this permission notice shall be included in all copies or substantial portions of the
+# Software.
+
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+# WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+# COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+# OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+#########################################################
+
 import argparse
 import sys
 import logging
@@ -71,6 +89,12 @@ def _setup_arg_parsers() -> argparse.Namespace:
     tr_utils_args = argparse.ArgumentParser()
     tr_utils_args.add_argument("-dryrun", help="Execute a dry run without writing and changes to TestRail",
                                required=False)
+    tr_utils_args.add_argument("-trurl", help="The TestRail URL to use. Recommend usage of env vars for security",
+                               required=False, default=None)
+    tr_utils_args.add_argument("-truser", help="The TestRail username to use. Recommend usage of env vars for security",
+                               required=False, default=None)
+    tr_utils_args.add_argument("-trpass", help="The TestRail password. Recommend usage of env vars for security",
+                               required=False, default=None)
     tr_utils_args.add_argument("-trprojid", "-pid", help="The TestRail project ID to perform operations in.",
                                required=True)
     tr_utils_args.add_argument("-trsuiteid", "-tsid", help="The TestRail suite ID to operate in. Optional if using"
@@ -85,10 +109,15 @@ def _setup_arg_parsers() -> argparse.Namespace:
 
 def _select_and_execute_util(parsed_args) -> int:
 
-    #todo TR instance
+    tri = tr_interface.TestRailInterface(parsed_args.trurl, parsed_args.truser, parsed_args.trpass)
+
+    if tri.is_initialized is False:
+        _log.error("Failed to initialize TestRail interface. Cannot continue! Exiting.")
+        return 3
 
     if parsed_args.util == _utils.templater.__name__:
         _utils.templater.execute_util(parsed_args, tri)
+        #todo error code handle
         return 0
 
     return 0
