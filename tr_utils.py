@@ -20,6 +20,7 @@ import argparse
 import sys
 import logging
 import tr_templater
+import tr_gen_template_ids
 import tr_interface
 
 
@@ -27,6 +28,27 @@ _log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 class _utils(object):
+    class common_args:
+        @staticmethod
+        def add_secs_or_caseids(sub_parser: argparse.ArgumentParser, reqd: bool = True):
+            arg_group = sub_parser.add_mutually_exclusive_group(required=reqd)
+            arg_group.add_argument("-secids", "-s",
+                                             help="Section IDs in CSV format to template children test cases from",
+                                             type=str, default=None)
+            arg_group.add_argument("-tcids", "-i", help="TestCase IDs in CSV format to template from", type=str,
+                                   default=None)
+
+        @staticmethod
+        def add_inc_children_secs(sub_parser: argparse.ArgumentParser, reqd: bool = False, default: bool = False):
+            sub_parser.add_argument("-incchildren", "-c",
+                                          help="Include all children sections if templating by section id", type=bool,
+                                          required=reqd, default=default)
+
+        @staticmethod
+        def add_template_id_field_name(sub_parser: argparse.ArgumentParser, reqd: bool = False, default: bool = None):
+            sub_parser.add_argument("-tfname", "-tn", help="Template ID field name", required=reqd, type=str,
+                                          default=default)
+
     class templater(object):
         util = tr_templater.TestRailTemplater
 
@@ -40,29 +62,26 @@ class _utils(object):
             """
             templater_parser = tr_util_subargs.add_parser("templater")
 
-            templater_arg_group = templater_parser.add_mutually_exclusive_group(required=True)
-            templater_arg_group.add_argument("-secids", "-s",
-                                             help="Section IDs in CSV format to template children test cases from",
-                                             type=str)
-            templater_arg_group.add_argument("-tcids", "-i", help="TestCase IDs in CSV format to template from", type=str)
+            # add the section Ids or case Ids choice
+            _utils.common_args.add_secs_or_caseids(templater_parser)
 
-            templater_parser.add_argument("-incchildren", "-c",
-                                          help="Include all children sections if templating by section id", type=bool,
-                                          required=False, default=False)
+            # add option to include section children
+            _utils.common_args.add_inc_children_secs(templater_parser)
+
+            #add template ID field arg
+            _utils.common_args.add_template_id_field_name(templater_parser)
+
             templater_parser.add_argument("-fields", "-f", help="Field names in CSV format to template", required=True)
-            templater_parser.add_argument("-tfname", "-tn", help="Template ID field name", required=False, type=str,
-                                          default=None)
+
             templater_parser.add_argument("-markeroverride", "-mo", help="End of template marker override. Default "
             "value is: {0}".format(_utils.templater.util.get_default_end_marker()),
                                           required=False, type=str, default=None)
-
             return
-
 
         @staticmethod
         def execute_util(templater_params:argparse.Namespace, tr_instance:tr_interface.TestRailInterface):
             templater = _utils.templater.util(tr_instance, templater_params.trprojid, templater_params.tfname,
-                                              templater_params.fields, templater_params.secids)
+                                              templater_params.fields, templater_params.secids, templater_params.tcids)
 
             dry_run = False
             if 'dryrun' in templater_params and templater_params.dryrun is not None:
@@ -70,6 +89,41 @@ class _utils(object):
                     dry_run = True
 
             templater.execute_templater(dry_run)
+            return
+
+    class template_id_gen(object):
+        util = tr_gen_template_ids.TemplateIDGen
+
+        @staticmethod
+        def setup_args(tr_util_subargs: argparse._SubParsersAction):
+            id_gen_parser = tr_util_subargs.add_parser("templateidgen")
+
+            # add the section Ids or case Ids choice
+            _utils.common_args.add_secs_or_caseids(id_gen_parser)
+
+            # add option to include section children
+            _utils.common_args.add_inc_children_secs(id_gen_parser)
+
+            #add template ID field arg
+            _utils.common_args.add_template_id_field_name(id_gen_parser)
+
+            id_gen_parser.add_argument("-overwrite", "-ow",
+                                          help="Overwrite data found in the TemplateID field. Defaults to "
+                                               "True", type=bool, required=False, default=True)
+
+        @staticmethod
+        def execute_util(template_id_gen_params:argparse.Namespace, tr_instance:tr_interface.TestRailInterface):
+            template_id_gen = _utils.template_id_gen.util(tr_instance, template_id_gen_params.tfname,
+                                                          template_id_gen_params.trprojid,
+                                                          template_id_gen_params.trsuiteid,
+                                                          template_id_gen_params.secids, template_id_gen_params.tcids)
+
+            dry_run = False
+            if 'dryrun' in template_id_gen_params and template_id_gen_params.dryrun is not None:
+                if template_id_gen_params.dryrun.lower() == "true":
+                    dry_run = True
+
+            template_id_gen.execute_id_gen(dry_run)
             return
 
 
@@ -125,10 +179,9 @@ def _select_and_execute_util(parsed_args) -> int:
 
 def main():
     parsed_args = _setup_arg_parsers()
-
     _select_and_execute_util(parsed_args)
 
-    #todo: [cec] Actual ret val
+    # TODO: [cf] Actual ret val
     return 0
 
 if __name__ == '__main__':

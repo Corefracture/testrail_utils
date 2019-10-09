@@ -39,8 +39,8 @@ class TestRailTemplater:
     _log = logging.getLogger(__name__)
 
     _tr: TestRailInterface = None
-    _tr_proj_id: str = None
-    _tr_suite_id: str = None
+    _tr_proj_id: int = None
+    _tr_suite_id: int = None
     _fields_to_template = None
     _template_id_field_name = None
     _template_src_section_ids = None
@@ -60,9 +60,9 @@ class TestRailTemplater:
 
         return
 
-    def __init__(self, tr_instance: TestRailInterface, tr_proj_id: str, template_id_field: str,
+    def __init__(self, tr_instance: TestRailInterface, tr_proj_id: int, template_id_field: str,
                  template_fields_csv: str, section_ids_csv: str = None, case_ids_csv: str = None,
-                 tr_suite_id: str = None, end_marker_override: str = None, get_all_child_sections: bool = True):
+                 tr_suite_id: int = None, end_marker_override: str = None, get_all_child_sections: bool = True):
         """
 
         :param tr_instance:
@@ -91,12 +91,7 @@ class TestRailTemplater:
 
         # Assume the project is using single suite mode and grab the default suite for the project
         if self._tr_suite_id is None:
-            suites = self._tr.tr.suites.get_suites(self._tr_proj_id)
-            if 'error' in suites or len(suites) == 0 or 'id' not in suites[0]:
-                self._log.error("Error encountered when attempting to identify default suite ID for project ID {0}. "
-                                "Error: {1}".format(self._tr_proj_id, suites['error']))
-            else:
-                self._tr_suite_id = suites[0]['id']
+            self._tr_suite_id = self._tr.suites_get_default_suite(int(self._tr_proj_id))
 
         return
 
@@ -114,7 +109,7 @@ class TestRailTemplater:
         # Retrieve all test case data from the target project / suite
         self._log.info("Retrieving test case data for project {0} using suite ID: {1}".format(self._tr_proj_id,
                                                                                               self._tr_suite_id))
-        test_case_data = self._tr.tr.cases.get_cases(self._tr_proj_id, suite_id=self._tr_suite_id)
+        test_case_data = self._tr.tr.cases.get_cases(int(self._tr_proj_id), suite_id=self._tr_suite_id)
         self._log.info("Found {0} test cases!".format(len(test_case_data)))
 
         if self._get_all_child_sections is True:
@@ -141,23 +136,6 @@ class TestRailTemplater:
 
     # region Private Functions
 
-    def _get_all_descendants_of_section(self, section_id, section_lookups: dict) -> list:
-        """
-        Recursively traverses section IDs to find all descendants of a section
-        :param section_id: The parent section ID
-        :param section_lookups: section lookup table, section id -> parent section id
-        :return:
-        """
-        ret_val = []
-
-
-        for sec_id, prnt_id in section_lookups.items():
-            if section_id == prnt_id:
-                ret_val.append(sec_id)
-                ret_val.extend(self._get_all_descendants_of_section(sec_id, section_lookups))
-
-        return ret_val
-
     def _get_case_ids_from_case_data(self, case_data: list) -> list:
         ret_val = []
 
@@ -174,17 +152,12 @@ class TestRailTemplater:
         new_sec_ids = []
 
         try:
-            sections = self._tr.tr.sections.get_sections(self._tr_proj_id, self._tr_suite_id)
-            temp_lookup = {}
-            for i in range(0, len(sections)):
-                section = sections[i]
-                parent_id = section['parent_id']
-                sec_id = section['id']
-                temp_lookup[sec_id] = parent_id
-                new_sec_ids = []
+            sections = self._tr.tr.sections.get_sections(int(self._tr_proj_id), suite_id=self._tr_suite_id)
             for section_id in self._template_src_section_ids:
                 new_sec_ids.append(section_id)
-                new_sec_ids.extend(self._get_all_descendants_of_section(int(section_id), temp_lookup))
+                child_secs = self._tr.secs_get_child_sections(int(section_id), sections)
+                if len(child_secs) > 0:
+                    new_sec_ids.extend(child_secs)
 
         except Exception as e:
             self._log.exception("Exception caught when retrieving source test cases for templater! Exception: {0}"

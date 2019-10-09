@@ -43,6 +43,7 @@ class TestRailInterface:
         Property method for returning the TestRailAPI
         :return: An instance of TestRailAPI, or None if the TestRailAPI hasn't been initialized
         """
+
         return self._api
 
     @property
@@ -89,3 +90,72 @@ class TestRailInterface:
             return case_data['error']
         else:
             return ""
+
+    # region Section Helpers
+
+    def _secs_get_all_descendants_of_section(self, section_id, section_lookups: dict) -> list:
+        """
+        Recursively traverses section IDs to find all descendants of a section
+        :param section_id: The parent section ID
+        :param section_lookups: section lookup table, section id -> parent section id
+        :return:
+        """
+        ret_val = []
+
+
+        for sec_id, prnt_id in section_lookups.items():
+            if section_id == prnt_id:
+                ret_val.append(sec_id)
+                ret_val.extend(self._secs_get_all_descendants_of_section(sec_id, section_lookups))
+
+        return ret_val
+
+    def secs_get_child_sections(self, section_id: int, sections: list) -> list:
+        """
+
+        :return:
+        """
+        ret_val = []
+
+        try:
+            temp_lookup = {}
+            for i in range(0, len(sections)):
+                section = sections[i]
+                parent_id = section['parent_id']
+                sec_id = section['id']
+                temp_lookup[sec_id] = parent_id
+                ret_val.extend(self._secs_get_all_descendants_of_section(section_id, temp_lookup))
+
+        except Exception as e:
+            self._logger.exception("Exception caught when retrieving source test cases for templater! Exception: {0}"
+                                .format(e))
+
+        return ret_val
+
+    # endregion Section Helpers
+
+    # region Suite Helpers
+
+    def suites_get_default_suite(self, tr_proj_id: int) -> int:
+        """
+        Get the default suite ID for a TestRail project.
+        :param tr_proj_id:
+        :return:
+        """
+        ret_val = -1
+
+        # Assume the project is using single suite mode and grab the default suite for the project
+        try:
+            suites = self.tr.suites.get_suites(tr_proj_id)
+            if 'error' in suites or len(suites) == 0 or 'id' not in suites[0]:
+                self._logger.error("Error encountered when attempting to identify default suite ID for project ID {0}. "
+                                "Error: {1}".format(tr_proj_id, suites['error']))
+            else:
+                ret_val = suites[0]['id']
+        except Exception as e:
+            self._logger.exception("Exception encountered when attempting to retrieving default suite ID for project"
+                                   "ID: {0}. Excpetion: {1}", tr_proj_id, e)
+
+        return ret_val
+
+    # endregion Suite Helpers
