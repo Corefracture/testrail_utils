@@ -1,6 +1,25 @@
-from tr_interface import TestRailInterface
+# ******************* LICENSE ***************************
+# MIT License
+# Copyright (c) 2019 Corefracture, cf, Chris Coleman
+
+# Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+# documentation files (the "Software"), to deal in the Software without restriction, including without limitation the
+# rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+# permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+# The above copyright notice and this permission notice shall be included in all copies or substantial portions of the
+# Software.
+
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+# WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+# COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+# OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+# ********************************************************
+
 import logging
 import uuid
+
+from tr_utils.interface.tr_interface import TestRailInterface
 
 
 class TemplateIDGen:
@@ -31,10 +50,16 @@ class TemplateIDGen:
         self._tr_proj_id = tr_proj_id
         self._tr_suite_id = tr_suite_id
         self._template_id_field_name = template_id_field
-        self._section_ids = section_ids_csv.split(',')
-        self._case_ids_to_template = case_ids_csv.split(',')
+        self._section_ids = section_ids_csv
+        self._case_ids_to_template = case_ids_csv
         self._override_existing_id = overwrite_existing_id
         self._get_all_child_sections = get_all_child_sections
+
+        if self._section_ids is not None:
+            self._section_ids = self._section_ids.split(',')
+
+        if self._case_ids_to_template is not None:
+            self._case_ids_to_template = self._case_ids_to_template.split(',')
 
         return
 
@@ -49,14 +74,14 @@ class TemplateIDGen:
         if self._get_all_child_sections is True:
             self._section_ids = self._get_child_sections()
 
-        cases_to_update = self._get_cases_to_update(test_case_data)
+        cases_to_update = self._get_cases_to_update(test_case_data, self._section_ids, self._case_ids_to_template)
 
         for test_case in cases_to_update:
             if dry_run is False:
                 template_id = uuid.uuid4().hex
                 self._log.debug("Template ID: {0} generated for CaseID: {1}", template_id, test_case['id'])
                 test_case[self._template_id_field_name] = template_id
-
+                self._tr.tr.cases.update_case(test_case['id'], **test_case)
         # TODO: cf: Error code setting and handling for failed steps.
 
         return 0
@@ -82,10 +107,10 @@ class TemplateIDGen:
 
         try:
             # dupe code to avoid unneeded if checks
-            if section_ids is None:
+            if section_ids is not None:
                 for test_case in test_case_data:
                     sec_id = test_case['section_id']
-                    if sec_id is not None and test_case['section_id'] in section_ids:
+                    if sec_id is not None and str(sec_id) in section_ids:
                         if test_case[self._template_id_field_name] is None or self._override_existing_id is True:
                             cases_to_update.append(test_case)
             else:
@@ -114,7 +139,7 @@ class TemplateIDGen:
             sections = self._tr.tr.sections.get_sections(int(self._tr_proj_id), suite_id=self._tr_suite_id)
             for section_id in self._section_ids:
                 new_sec_ids.append(section_id)
-                child_secs = self._tr.secs_get_child_sections(int(section_id), sections)
+                child_secs = self._tr.get_child_sections([int(section_id)], sections)
                 if len(child_secs) > 0:
                     new_sec_ids.extend(child_secs)
 

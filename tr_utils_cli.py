@@ -17,12 +17,12 @@
 #########################################################
 
 import argparse
-import sys
 import logging
-import tr_templater
-import tr_gen_template_ids
-import tr_interface
+import sys
 
+from tr_utils.interface.tr_interface import TestRailInterface
+from tr_utils.utils.tr_gen_template_ids import TemplateIDGen
+from tr_utils.utils.tr_templater import TestRailTemplater
 
 _log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -50,7 +50,8 @@ class _utils(object):
                                           default=default)
 
     class templater(object):
-        util = tr_templater.TestRailTemplater
+
+        util = TestRailTemplater
 
         @staticmethod
         def setup_args(tr_util_subargs:argparse._SubParsersAction):
@@ -79,7 +80,7 @@ class _utils(object):
             return
 
         @staticmethod
-        def execute_util(templater_params:argparse.Namespace, tr_instance:tr_interface.TestRailInterface):
+        def execute_util(templater_params:argparse.Namespace, tr_instance: TestRailInterface):
             templater = _utils.templater.util(tr_instance, templater_params.trprojid, templater_params.tfname,
                                               templater_params.fields, templater_params.secids, templater_params.tcids)
 
@@ -92,7 +93,7 @@ class _utils(object):
             return
 
     class template_id_gen(object):
-        util = tr_gen_template_ids.TemplateIDGen
+        util = TemplateIDGen
 
         @staticmethod
         def setup_args(tr_util_subargs: argparse._SubParsersAction):
@@ -112,7 +113,7 @@ class _utils(object):
                                                "True", type=bool, required=False, default=True)
 
         @staticmethod
-        def execute_util(template_id_gen_params:argparse.Namespace, tr_instance:tr_interface.TestRailInterface):
+        def execute_util(template_id_gen_params:argparse.Namespace, tr_instance: TestRailInterface):
             template_id_gen = _utils.template_id_gen.util(tr_instance, template_id_gen_params.tfname,
                                                           template_id_gen_params.trprojid,
                                                           template_id_gen_params.trsuiteid,
@@ -125,8 +126,6 @@ class _utils(object):
 
             template_id_gen.execute_id_gen(dry_run)
             return
-
-
 
 
 def setup_templateid_gen_args(tr_util_subargs:argparse._SubParsersAction):
@@ -157,22 +156,23 @@ def _setup_arg_parsers() -> argparse.Namespace:
     tr_util_subargs = tr_utils_args.add_subparsers(help="Which TestRail utility to run", dest='util')
 
     _utils.templater.setup_args(tr_util_subargs)
+    _utils.template_id_gen.setup_args(tr_util_subargs)
 
     return tr_utils_args.parse_args()
 
 
 def _select_and_execute_util(parsed_args) -> int:
-
-    tri = tr_interface.TestRailInterface(parsed_args.trurl, parsed_args.truser, parsed_args.trpass)
+    tri = TestRailInterface(parsed_args.trurl, parsed_args.truser, parsed_args.trpass)
 
     if tri.is_initialized is False:
         _log.error("Failed to initialize TestRail interface. Cannot continue! Exiting.")
         return 3
 
-    if parsed_args.util == _utils.templater.__name__:
-        _utils.templater.execute_util(parsed_args, tri)
+    #if parsed_args.util == _utils.templater.__name__:
+    #_utils.template_id_gen.execute_util(parsed_args, tri)
+    _utils.templater.execute_util(parsed_args, tri)
         #todo error code handle
-        return 0
+     #   return 0
 
     return 0
 
